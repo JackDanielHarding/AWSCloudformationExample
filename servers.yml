@@ -1,0 +1,133 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Description: Jack Harding - Server resources required for IaC project
+ 
+Parameters:
+    EnvironmentID:
+        Description: ID for the environment created by these scripts
+        Type: String 
+
+Resources:
+    LoadBalancerSecurityGroup:
+        Type: 'AWS::EC2::SecurityGroup'
+        Properties:
+            GroupDescription: Allow http traffic in and http traffic internally out to load balancers
+            SecurityGroupEgress:
+            -   IpProtocol: tcp
+                FromPort: 80
+                ToPort: 80
+                CidrIp:
+                    Fn::ImportValue:   
+                        !Sub "${EnvironmentID}-VPCCIDRID"
+            SecurityGroupIngress:
+            -   IpProtocol: tcp
+                FromPort: 80
+                ToPort: 80
+                CidrIp: 0.0.0.0/0
+            VpcId: 
+                Fn::ImportValue:
+                    !Sub "${EnvironmentID}-VPCID"
+
+    WebServerSecurityGroup:
+        Type: 'AWS::EC2::SecurityGroup'
+        Properties:
+            GroupDescription: Allow http traffic in and all traffic out to Web servers
+            SecurityGroupEgress:
+            -   IpProtocol: -1
+                FromPort: -1
+                ToPort: -1
+                CidrIp: 0.0.0.0/0
+            SecurityGroupIngress:
+            -   IpProtocol: tcp
+                FromPort: 80
+                ToPort: 80
+                CidrIp: 0.0.0.0/0
+            VpcId: 
+                Fn::ImportValue:
+                    !Sub "${EnvironmentID}-VPCID"
+
+    WebServerLaunchConfiguration:
+        Type: AWS::AutoScaling::LaunchConfiguration
+        Properties:
+            ImageId: ami-090717c950a5c34d3
+            InstanceType: t2.medium
+            BlockDeviceMappings:
+            -   DeviceName: "/dev/sdk"
+                Ebs: 
+                    VolumeSize: '10'
+            SecurityGroups:
+            -   Ref: WebServerSecurityGroup
+            UserData:
+                Fn::Base64: !Sub |
+                    #!/bin/bash
+                    apt-get update -y
+                    apt-get install apache2 -y
+                    systemctl start apache2.service
+                    cd /var/www/html
+                    echo "it works! Udagram, Udacity" > index.html
+
+    WebServerTargetGroup:
+        Type: AWS::ElasticLoadBalancingV2::TargetGroup
+        Properties:
+            HealthCheckIntervalSeconds: 10
+            HealthCheckPath: /
+            HealthCheckProtocol: HTTP
+            HealthCheckTimeoutSeconds: 8
+            HealthyThresholdCount: 2
+            Port: 80
+            Protocol: HTTP
+            UnhealthyThresholdCount: 5
+            VpcId: 
+                Fn::ImportValue:
+                    !Sub "${EnvironmentID}-VPCID"
+
+    WebServerLoadBalancer:
+        Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+        Properties:
+            Subnets: 
+            -   Fn::ImportValue: !Sub "${EnvironmentID}-publicSubnet1ID"
+            -   Fn::ImportValue: !Sub "${EnvironmentID}-publicSubnet2ID"
+            SecurityGroups: 
+            -   !Ref LoadBalancerSecurityGroup
+
+    ApplicationLoadBalancerListener:
+        Type: AWS::ElasticLoadBalancingV2::Listener
+        Properties:
+            DefaultActions:
+            -   Type: forward
+                TargetGroupArn: !Ref WebServerTargetGroup
+            LoadBalancerArn: !Ref WebServerLoadBalancer
+            Port: '80'
+            Protocol: HTTP
+
+    ApplicationLoadBalancerListenerRule:
+        Type: AWS::ElasticLoadBalancingV2::ListenerRule
+        Properties:
+            Actions:
+            -   Type: forward
+                TargetGroupArn: !Ref WebServerTargetGroup
+            Conditions:
+            -   Field: path-pattern
+                Values: [/]
+            ListenerArn: !Ref ApplicationLoadBalancerListener
+            Priority: 1
+
+    WebServerAutoScalingGroup:
+        Type: AWS::AutoScaling::AutoScalingGroup
+        Properties:
+            HealthCheckGracePeriod: 60
+            HealthCheckType: ELB
+            LaunchConfigurationName:
+                Ref: WebServerLaunchConfiguration
+            MinSize: 2
+            MaxSize: 4
+            TargetGroupARNs:
+            -   Ref: WebServerTargetGroup
+            VPCZoneIdentifier:
+            -   Fn::ImportValue:
+                    !Sub "${EnvironmentID}-privateSubnetIDs"
+
+Outputs:
+    LoadBalancerDNSName:
+        Description: The DNS Name the Load Balancer is given
+        Value: !Sub http://${WebServerLoadBalancer.DNSName}

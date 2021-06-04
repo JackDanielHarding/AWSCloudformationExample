@@ -1,0 +1,1 @@
+aws cloudformation create-stack --stack-name UdacityIaCProjectServers --template-body file://servers.yml --parameters file://server-parameters.json --region us-west-2

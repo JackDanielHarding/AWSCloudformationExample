@@ -1,8 +1,12 @@
 AWSTemplateFormatVersion: 2010-09-09
 
-Description: Jack Harding - Resources required for IaC project
+Description: Jack Harding - Network resources required for IaC project
 
 Parameters:
+    EnvironmentID:
+        Description: ID for the environment created by these scripts
+        Type: String
+
     VPCCIDR:
         Description: CIDR value for the VPC
         Type: String
@@ -165,16 +169,28 @@ Outputs:
         Description: A reference to the created VPC
         Value: !Ref VPC
         Export:
-            Name: !Sub ${AWS::StackName}-VPCID
+            Name: !Sub ${EnvironmentID}-VPCID
     
-    PublicSubnetsRef:
-        Description: A List of references to the created public subnets
-        Value: !Join [",", [ !Ref PublicSubnet1, !Ref PublicSubnet2]]
+    VPCCIDRRef:
+        Description: A reference to the created VPC's CIDR block
+        Value: !GetAtt VPC.CidrBlock
         Export:
-            Name: !Sub ${AWS::StackName}-publicSubnetIDs
+            Name: !Sub ${EnvironmentID}-VPCCIDRID
+    
+    PublicSubnet1Ref:
+        Description: A List of references to the created public subnets
+        Value: !Ref PublicSubnet1
+        Export:
+            Name: !Sub ${EnvironmentID}-publicSubnet1ID
+
+    PublicSubnet2Ref:
+        Description: A List of references to the created public subnets
+        Value: !Ref PublicSubnet2
+        Export:
+            Name: !Sub ${EnvironmentID}-publicSubnet2ID
     
     PrivateSubnetsRef:
         Description: A List of references to the created private subnets
         Value: !Join [",", [ !Ref PrivateSubnet1, !Ref PrivateSubnet2]]
         Export:
-            Name: !Sub ${AWS::StackName}-privateSubnetIDs
+            Name: !Sub ${EnvironmentID}-privateSubnetIDs
