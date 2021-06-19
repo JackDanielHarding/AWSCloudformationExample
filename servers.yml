@@ -7,6 +7,10 @@ Parameters:
         Description: ID for the environment created by these scripts
         Type: String 
 
+    WebServerInstanceType:
+        Description: The instance type used for the created EC2 instances
+        Type: String 
+
 Resources:
     LoadBalancerSecurityGroup:
         Type: 'AWS::EC2::SecurityGroup'
@@ -50,7 +54,7 @@ Resources:
         Type: AWS::AutoScaling::LaunchConfiguration
         Properties:
             ImageId: ami-090717c950a5c34d3
-            InstanceType: t2.medium
+            InstanceType: !Sub ${WebServerInstanceType}
             BlockDeviceMappings:
             -   DeviceName: "/dev/sdk"
                 Ebs: 

@@ -2,5 +2,9 @@
     {
         "ParameterKey": "EnvironmentID",
         "ParameterValue": "UdacityIaCProject"
+    },
+    {
+        "ParameterKey": "WebServerInstanceType",
+        "ParameterValue": "t3.medium"
     }
 ]
